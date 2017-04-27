@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.7)
+project(Landfill)
+add_library(landfill SHARED src/landfill.cpp)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -std=c++14")
+target_include_directories(landfill PUBLIC include)
+add_executable(app app/main.cpp)
+target_link_libraries(app landfill)
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--enable-new-dtags")
