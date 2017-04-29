@@ -1,8 +1,69 @@
 #include <landfill/types.h>
-#include <vector>
 #include <algorithm>
+#include <vector>
 
 namespace landfill {
+
+namespace {
+
+std::unordered_set<RawStrongPointer*> root_set{};
+
+void AddToRootSet(RawStrongPointer* ptr) {
+  root_set.emplace(ptr);
+}
+
+void RemoveFromRootSet(RawStrongPointer* ptr) {
+  root_set.erase(ptr);
+}
+
+}  // anonymous namespace
+
+void GC() {
+}
+
+RawStrongPointer::RawStrongPointer() {
+  AddToRootSet(this);
+}
+
+RawStrongPointer::RawStrongPointer(RawCollectible* ref) : ref_{ref} {
+  AddToRootSet(this);
+}
+
+RawStrongPointer::RawStrongPointer(RawStrongPointer const& other) : ref_{other.ref_} {
+  AddToRootSet(this);
+}
+
+RawStrongPointer::RawStrongPointer(RawStrongPointer&& other) : ref_{other.ref_} {
+  AddToRootSet(this);
+}
+
+RawStrongPointer::~RawStrongPointer() {
+  RemoveFromRootSet(this);
+}
+
+RawStrongPointer& RawStrongPointer::operator=(RawStrongPointer const& other) {
+  if (&other == this) {
+    return *this;
+  }
+  ref_ = other.ref_;
+  return *this;
+}
+
+RawStrongPointer& RawStrongPointer::operator=(RawStrongPointer&& other) {
+  if (&other == this) {
+    return *this;
+  }
+  ref_ = other.ref_;
+  return *this;
+}
+
+RawCollectible* RawStrongPointer::GetUntyped() const {
+  return ref_;
+}
+
+void RawStrongPointer::Reset() { ref_ = nullptr; }
+
+void RawStrongPointer::Reset(RawCollectible* ptr) { ref_ = ptr; }
 
 RawWeakPointer::RawWeakPointer(RawCollectible* owner) : owner_{owner} {
   owner_->AddPointer(this);
@@ -41,25 +102,20 @@ RawWeakPointer& RawWeakPointer::operator=(RawWeakPointer&& other) {
   return *this;
 }
 
-RawCollectible* RawWeakPointer::Get() const { return ref_; }
+RawCollectible* RawWeakPointer::GetUntyped() const { return ref_; }
 
 void RawWeakPointer::Reset() { ref_ = nullptr; }
 
 void RawWeakPointer::Reset(RawCollectible* ptr) { ref_ = ptr; }
 
-RawCollectible::RawCollectible(RawCollectible& other) {
-  for (auto&& ptr : other.pointers_) {
-    pointers_.emplace(this, ptr->Get());
-  }
-}
+RawCollectible::RawCollectible(void* self) : self_{self} {}
 
-RawCollectible::RawCollectible(RawCollectible&& other) {
-  for (auto&& ptr : other.pointers_) {
-    pointers_.emplace(this, ptr->Get());
-  }
-}
+void* RawCollectible::GetUntypedSelf() { return self_; }
 
-RawCollectible& RawCollectible::operator=(RawCollectible const& other) {
+void RawCollectible::AddPointer(RawWeakPointer* ptr) { pointers_.emplace(ptr); }
+
+void RawCollectible::RemovePointer(RawWeakPointer* ptr) {
+  pointers_.erase(ptr);
 }
 
 }  // namespace landfill

@@ -1,22 +1,83 @@
 #ifndef LANDFILL_LANDFILL_TYPES_H_
 #define LANDFILL_LANDFILL_TYPES_H_
 #include <unordered_set>
+#include <type_traits>
 
 namespace landfill {
+
+void GC();
+
+class RawCollectible;
+
+class RawWeakPointer {
+ public:
+  RawWeakPointer() = delete;
+  RawWeakPointer(RawCollectible* owner);
+  RawWeakPointer(RawCollectible* owner, RawCollectible* ref);
+  RawWeakPointer(RawWeakPointer const& other);
+  RawWeakPointer(RawWeakPointer&& other);
+  ~RawWeakPointer();
+  RawWeakPointer& operator=(RawWeakPointer const& other);
+  RawWeakPointer& operator=(RawWeakPointer&& other);
+  RawCollectible* GetUntyped() const;
+  void Reset();
+  void Reset(RawCollectible* ptr);
+
+ private:
+  RawCollectible* owner_;
+  RawCollectible* ref_;
+};  // class RawWeakPointer
+
+class RawStrongPointer {
+ public:
+  RawStrongPointer();
+  RawStrongPointer(RawCollectible* ref);
+  RawStrongPointer(RawStrongPointer const& other);
+  RawStrongPointer(RawStrongPointer && other);
+  ~RawStrongPointer();
+  RawStrongPointer& operator=(RawStrongPointer const& other);
+  RawStrongPointer& operator=(RawStrongPointer&& other);
+  RawCollectible* GetUntyped() const;
+  void Reset();
+  void Reset(RawCollectible* ptr);
+
+ private:
+  RawCollectible* ref_{nullptr};
+};  // class RawStrongPointer
+
+class RawCollectible {
+ public:
+  RawCollectible() = delete;
+  RawCollectible(void* self);
+  RawCollectible(RawCollectible const& other) = delete;
+  RawCollectible(RawCollectible&& other) = delete;
+  ~RawCollectible() = default;
+  RawCollectible& operator=(RawCollectible const& other) = delete;
+  RawCollectible& operator=(RawCollectible&& other) = delete;
+  void* GetUntypedSelf();
+  // Do not call these two functions directly.
+  void AddPointer(RawWeakPointer* ptr);
+  void RemovePointer(RawWeakPointer* ptr);
+
+ private:
+  std::unordered_set<RawWeakPointer*> pointers_;
+  void* self_;
+};  // class RawCollectible
 
 template <typename T>
 class Collectible;
 
-class RawCollectible;
-
 template <typename T>
 class StrongPointer {
+  static_assert(std::is_base_of<Collectible<T>, T>::value,
+                "Must inherit from Collectible.");
+
  public:
   StrongPointer() = default;
   StrongPointer(Collectible<T>* c);
   StrongPointer(StrongPointer<T> const& other) = default;
   StrongPointer(StrongPointer<T>&& other) = default;
-  virtual ~StrongPointer() = default;
+  ~StrongPointer() = default;
   StrongPointer& operator=(StrongPointer const& other) = default;
   StrongPointer& operator=(StrongPointer&& other) = default;
   T* Get() const;
@@ -27,74 +88,37 @@ class StrongPointer {
   Collectible<T>* ref_{nullptr};
 };  // class StrongPointer
 
-class RawWeakPointer {
- public:
-  RawWeakPointer() = delete;
-  RawWeakPointer(RawCollectible* owner);
-  RawWeakPointer(RawCollectible* owner, RawCollectible* ref);
-  RawWeakPointer(RawWeakPointer const& other);
-  RawWeakPointer(RawWeakPointer&& other);
-  virtual ~RawWeakPointer();
-  RawWeakPointer& operator=(RawWeakPointer const& other);
-  RawWeakPointer& operator=(RawWeakPointer&& other);
-  RawCollectible* Get() const;
-  void Reset();
-  void Reset(RawCollectible* ptr);
-
- private:
-  RawCollectible* owner_;
-  RawCollectible* ref_;
-};  // class RawWeakPointer
-
-class RawCollectible {
- public:
-  RawCollectible() = default;
-  RawCollectible(RawCollectible& other);
-  RawCollectible(RawCollectible&& other);
-  virtual ~RawCollectible() = default;
-  RawCollectible& operator=(RawCollectible const& other);
-  RawCollectible& operator=(RawCollectible&& other);
-  void AddPointer(RawWeakPointer* ptr);
-  void RemovePointer(RawWeakPointer* ptr);
-
- private:
-  std::unordered_set<RawWeakPointer*> pointers_;
-};  // class RawCollectible
-
 template <typename T, typename U>
-class WeakPointer : RawWeakPointer {
+class WeakPointer : public RawWeakPointer {
+  static_assert(std::is_base_of<Collectible<T>, T>::value,
+                "Must inherit from Collectible.");
+
  public:
   WeakPointer() = delete;
   WeakPointer(Collectible<U>* owner);
   WeakPointer(Collectible<U>* owner, Collectible<T>* ref);
   WeakPointer(WeakPointer<T, U> const& other);
   WeakPointer(WeakPointer<T, U>&& other);
-  virtual ~WeakPointer();
+  ~WeakPointer() = default;
   WeakPointer<T, U>& operator=(WeakPointer<T, U> const& other);
   WeakPointer<T, U>& operator=(WeakPointer<T, U>&& other);
   T* Get() const;
   T& operator*() const;
   T* operator->() const;
-  void Reset();
   void Reset(Collectible<T>* ptr);
-
- private:
-  Collectible<T>* ref_{nullptr};
-  Collectible<U>* owner_{nullptr};
 };  // class WeakPointer
 
 template <typename T>
-class Collectible {
- protected:
-  template <typename R>
-  void AddPointer(WeakPointer<R, T>* ptr);
-  template <typename R>
-  void RemovePointer(WeakPointer<R, T>* ptr);
+class Collectible : public RawCollectible {
+ public:
+  Collectible() = delete;
+  Collectible(T* self);
+  Collectible(Collectible<T> const& other) = delete;
+  Collectible(Collectible<T>&& other) = delete;
+  ~Collectible() = default;
+  Collectible<T>& operator=(Collectible<T> const& other) = delete;
+  Collectible<T>& operator=(Collectible<T>&& other) = delete;
   T* GetSelf();
-
- private:
-  std::unordered_set<RawWeakPointer> pointers_;
-  T* self_;
 };  // class Collectible;
 
 template <typename T>
@@ -116,33 +140,29 @@ T* StrongPointer<T>::operator->() const {
 }
 
 template <typename T, typename U>
-WeakPointer<T, U>::WeakPointer(Collectible<U>* owner) : owner_{owner} {
-  owner_->AddPointer(this);
-}
+WeakPointer<T, U>::WeakPointer(Collectible<U>* owner)
+    : RawWeakPointer{owner} {};
 
 template <typename T, typename U>
 WeakPointer<T, U>::WeakPointer(Collectible<U>* owner, Collectible<T>* ref)
-    : WeakPointer{owner}, ref_{ref} {}
+    : RawWeakPointer{owner, ref} {};
 
 template <typename T, typename U>
 WeakPointer<T, U>::WeakPointer(WeakPointer<T, U> const& other)
-    : WeakPointer{other.owner_}, ref_{other.ref_} {}
+    : RawWeakPointer{other} {};
 
 template <typename T, typename U>
 WeakPointer<T, U>::WeakPointer(WeakPointer<T, U>&& other)
-    : WeakPointer{other.owner_}, ref_{other.ref_} {}
+    : RawWeakPointer{std::move(other)} {};
 
 template <typename T, typename U>
-WeakPointer<T, U>::~WeakPointer() {
-  owner_->RemovePointer(this);
-}
-
-template <typename T, typename U>
-WeakPointer<T, U>& WeakPointer<T, U>::operator=(WeakPointer<T, U> const& other) {
+WeakPointer<T, U>& WeakPointer<T, U>::operator=(
+    WeakPointer<T, U> const& other) {
   if (&other == this) {
     return *this;
   }
-  ref_ = other.ref_;
+  *static_cast<RawWeakPointer*>(this) =
+      static_cast<RawWeakPointer const&>(other);
   return *this;
 }
 
@@ -151,13 +171,13 @@ WeakPointer<T, U>& WeakPointer<T, U>::operator=(WeakPointer<T, U>&& other) {
   if (&other == this) {
     return *this;
   }
-  ref_ = other.ref_;
+  *static_cast<RawWeakPointer*>(this) = static_cast<RawWeakPointer&&>(other);
   return *this;
 }
 
 template <typename T, typename U>
 T* WeakPointer<T, U>::Get() const {
-  return ref_->GetSelf();
+  return static_cast<T*>(GetUntyped());
 }
 
 template <typename T, typename U>
@@ -171,23 +191,16 @@ T* WeakPointer<T, U>::operator->() const {
 }
 
 template <typename T, typename U>
-void WeakPointer<T, U>::Reset() {
-  ref_ = nullptr;
-}
-
-template <typename T, typename U>
 void WeakPointer<T, U>::Reset(Collectible<T>* ptr) {
-  ref_ = ptr;
+  Reset(static_cast<RawCollectible*>(ptr));
 }
 
 template <typename T>
-void Collectible<T>::AddPointer(WeakPointer<T>* ptr) {
-  pointers_.emplace(ptr);
-}
+Collectible<T>::Collectible(T* self) : RawCollectible{self} {};
 
 template <typename T>
-void Collectible<T>::RemovePointer(WeakPointer<T>* ptr) {
-  pointers_.erase(ptr);
+T* Collectible<T>::GetSelf() {
+  return static_cast<T*>(GetUntypedSelf());
 }
 
 }  // namespace landfill

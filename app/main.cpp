@@ -1,7 +1,12 @@
-#include <landfill/landfill.h>
+#include <landfill/types.h>
+
+struct S : public landfill::Collectible<S> {
+ public:
+  S() : landfill::Collectible<S>{this} {}
+};
 
 int main() {
-  3 < static_cast<unsigned int>(100);
-  func();
+  S* s = new S{};
+  landfill::StrongPointer<S> a{s};
   return 0;
 }
