@@ -7,39 +7,77 @@ namespace landfill {
 namespace {
 
 std::unordered_set<RawStrongPointer*> root_set{};
+std::unordered_set<RawCollectible*> live_objects{};
 
-void AddToRootSet(RawStrongPointer* ptr) {
-  root_set.emplace(ptr);
-}
+void AddToRootSet(RawStrongPointer* ptr) { root_set.emplace(ptr); }
 
-void RemoveFromRootSet(RawStrongPointer* ptr) {
-  root_set.erase(ptr);
-}
+void RemoveFromRootSet(RawStrongPointer* ptr) { root_set.erase(ptr); }
+
+void AddToLiveObjects(RawCollectible* ptr) { live_objects.emplace(ptr); }
+
+void RemoveFromLiveObjects(RawCollectible* ptr) { live_objects.erase(ptr); }
 
 }  // anonymous namespace
 
 void GC() {
+  std::printf("Rootset: %zu\n", root_set.size());
+  for (auto p : root_set) {
+    std::printf("%p\n", p);
+  }
+  std::printf("Live objects: %zu\n", live_objects.size());
+  for (auto p : live_objects) {
+    std::printf("%p\n", p);
+  }
+  std::vector<RawCollectible*> stack;
+  std::unordered_set<RawCollectible*> reachable;
+  for (auto p : root_set) {
+    auto ref = p->GetCollectible();
+    if (ref == nullptr) {
+      continue;
+    }
+    stack.push_back(ref);
+    reachable.emplace(ref);
+  }
+  while (!stack.empty()) {
+    auto p = stack.back();
+    stack.pop_back();
+    for (auto ptr : p->GetReferences()) {
+      auto ref = ptr->GetCollectible();
+      if (ref == nullptr) {
+        continue;
+      }
+      if (reachable.count(ref) == 0) {
+        reachable.emplace(ref);
+        stack.push_back(ref);
+      }
+    }
+  }
+  auto live_objects_copy = live_objects;
+  for (auto obj : live_objects_copy) {
+    if (reachable.count(obj) == 0) {
+      std::printf("%p is not reachable.\n", obj);
+      delete obj;
+    }
+  }
 }
 
-RawStrongPointer::RawStrongPointer() {
-  AddToRootSet(this);
-}
+RawStrongPointer::RawStrongPointer() { AddToRootSet(this); }
 
 RawStrongPointer::RawStrongPointer(RawCollectible* ref) : ref_{ref} {
   AddToRootSet(this);
 }
 
-RawStrongPointer::RawStrongPointer(RawStrongPointer const& other) : ref_{other.ref_} {
+RawStrongPointer::RawStrongPointer(RawStrongPointer const& other)
+    : ref_{other.ref_} {
   AddToRootSet(this);
 }
 
-RawStrongPointer::RawStrongPointer(RawStrongPointer&& other) : ref_{other.ref_} {
+RawStrongPointer::RawStrongPointer(RawStrongPointer&& other)
+    : ref_{other.ref_} {
   AddToRootSet(this);
 }
 
-RawStrongPointer::~RawStrongPointer() {
-  RemoveFromRootSet(this);
-}
+RawStrongPointer::~RawStrongPointer() { RemoveFromRootSet(this); }
 
 RawStrongPointer& RawStrongPointer::operator=(RawStrongPointer const& other) {
   if (&other == this) {
@@ -57,9 +95,7 @@ RawStrongPointer& RawStrongPointer::operator=(RawStrongPointer&& other) {
   return *this;
 }
 
-RawCollectible* RawStrongPointer::GetUntyped() const {
-  return ref_;
-}
+RawCollectible* RawStrongPointer::GetCollectible() const { return ref_; }
 
 void RawStrongPointer::Reset() { ref_ = nullptr; }
 
@@ -102,13 +138,17 @@ RawWeakPointer& RawWeakPointer::operator=(RawWeakPointer&& other) {
   return *this;
 }
 
-RawCollectible* RawWeakPointer::GetUntyped() const { return ref_; }
+RawCollectible* RawWeakPointer::GetCollectible() const { return ref_; }
 
 void RawWeakPointer::Reset() { ref_ = nullptr; }
 
 void RawWeakPointer::Reset(RawCollectible* ptr) { ref_ = ptr; }
 
-RawCollectible::RawCollectible(void* self) : self_{self} {}
+RawCollectible::RawCollectible(void* self) : self_{self} {
+  AddToLiveObjects(this);
+}
+
+RawCollectible::~RawCollectible() { RemoveFromLiveObjects(this); }
 
 void* RawCollectible::GetUntypedSelf() { return self_; }
 
@@ -116,6 +156,10 @@ void RawCollectible::AddPointer(RawWeakPointer* ptr) { pointers_.emplace(ptr); }
 
 void RawCollectible::RemovePointer(RawWeakPointer* ptr) {
   pointers_.erase(ptr);
+}
+
+std::unordered_set<RawWeakPointer*> RawCollectible::GetReferences() {
+  return pointers_;
 }
 
 }  // namespace landfill
