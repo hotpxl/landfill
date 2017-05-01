@@ -1,0 +1,5 @@
+find_package(GTest REQUIRED)
+file(GLOB_RECURSE TEST_SRC_FILES "*.cpp")
+add_executable(test_all "${TEST_SRC_FILES}")
+target_link_libraries(test_all GTest::GTest GTest::Main landfill)
+add_test(NAME test_all COMMAND test_all)
