@@ -27,4 +27,54 @@ wrappers to hide *unsoundness* (in the sense of type system) under the
 rug.
 
 To make objects collectible, they have to inherit from
-`Collectible<T>` using a *curiously recurring template pattern*.
+`Collectible<T>` using a *curiously recurring template pattern*. And
+they need to pass down `this` during construction. The next code
+snippet serves as an example.
+
+```cpp
+struct MyObject : public landfill::Collection<MyObject> {
+  // ...
+};
+```
+
+In fact, `Collectible` inherits from `RawCollectible` virtually, so
+multiple inheritance with each base class collectible is also
+supported. In addition, `RawCollectible` declares a virtual
+destructor, so it will always call the correct destructor. It means if
+some class inherits from another collectible class, but is not itself
+collectible, then this class will be properly garbage collected, only
+that it cannot be pointed to using `StrongPointer` or `WeakPointer`.
+Another implementation would not make destructor virtual, thus
+possibly saving the vtable, but will have to store a function pointer
+with each `RawCollectible` instance for destruction. By doing this, we
+are trading the vtable pointer for a function pointer, which is more
+or less equivalent.
+
+## Usage
+
+As aliases, use `S` for `StrongPointer`, `W` for `WeakPointer`, `C`
+for `Collectible`.
+
+Inherit from `Collectible` if you want to point to it.
+
+```cpp
+struct O : landfill::C<O> {
+  // ...
+};
+```
+
+`StrongPointer` can be made directly.
+
+```cpp
+auto strong_pointer = landfill::S<O>::Make();
+```
+
+`WeakPointer` can be stored as an indirect reference, but must be
+initialized with the owner.
+
+```cpp
+struct O2 : landfill::C<O2> {
+  landfill::W<O> to_o;
+  O2() : to_o{this} {}
+};
+```

@@ -47,22 +47,19 @@ class RawStrongPointer {
 
 class RawCollectible {
  public:
-  RawCollectible() = delete;
-  RawCollectible(void* self);
+  RawCollectible();
   RawCollectible(RawCollectible const& other) = delete;
   RawCollectible(RawCollectible&& other) = delete;
   virtual ~RawCollectible();
   RawCollectible& operator=(RawCollectible const& other) = delete;
   RawCollectible& operator=(RawCollectible&& other) = delete;
-  void* GetUntypedSelf();
   // Do not call these functions directly.
   void AddPointer(RawWeakPointer* ptr);
   void RemovePointer(RawWeakPointer* ptr);
   std::unordered_set<RawWeakPointer*> GetReferences();
 
  private:
-  std::unordered_set<RawWeakPointer*> pointers_;
-  void* self_;
+  std::unordered_set<RawWeakPointer*> pointers_{};
 };  // class RawCollectible
 
 template <typename T>
@@ -115,17 +112,24 @@ class WeakPointer : public RawWeakPointer {
 };  // class WeakPointer
 
 template <typename T>
-class Collectible : public RawCollectible {
+class Collectible : virtual public RawCollectible {
  public:
-  Collectible() = delete;
-  Collectible(T* self);
+  Collectible() = default;
   Collectible(Collectible<T> const& other) = delete;
   Collectible(Collectible<T>&& other) = delete;
   ~Collectible() = default;
   Collectible<T>& operator=(Collectible<T> const& other) = delete;
   Collectible<T>& operator=(Collectible<T>&& other) = delete;
-  T* GetSelf();
 };  // class Collectible;
+
+template <typename T>
+using S = StrongPointer<T>;
+
+template <typename T>
+using W = WeakPointer<T>;
+
+template <typename T>
+using C = Collectible<T>;
 
 template <typename T>
 template <typename... Args>
@@ -142,7 +146,7 @@ StrongPointer<T>::StrongPointer(WeakPointer<T> const& w)
 
 template <typename T>
 T* StrongPointer<T>::Get() const {
-  return static_cast<T*>(GetCollectible()->GetUntypedSelf());
+  return dynamic_cast<T*>(GetCollectible());
 }
 
 template <typename T>
@@ -170,7 +174,7 @@ WeakPointer<T>::WeakPointer(RawCollectible* owner, Collectible<T>* ref)
 
 template <typename T>
 T* WeakPointer<T>::Get() const {
-  return static_cast<T*>(GetCollectible()->GetUntypedSelf());
+  return dynamic_cast<T*>(GetCollectible());
 }
 
 template <typename T>
@@ -186,14 +190,6 @@ T* WeakPointer<T>::operator->() const {
 template <typename T>
 void WeakPointer<T>::Reset(Collectible<T>* ptr) {
   Reset(static_cast<RawCollectible*>(ptr));
-}
-
-template <typename T>
-Collectible<T>::Collectible(T* self) : RawCollectible{self} {};
-
-template <typename T>
-T* Collectible<T>::GetSelf() {
-  return static_cast<T*>(GetUntypedSelf());
 }
 
 }  // namespace landfill

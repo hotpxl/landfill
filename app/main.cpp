@@ -3,12 +3,12 @@
 #include <vector>
 
 struct P : public landfill::Collectible<P> {
-  P() : landfill::Collectible<P>{this} { std::printf("P::P()\n"); }
+  P() { std::printf("P::P()\n"); }
   ~P() { std::printf("P::~P()\n"); }
 };
 
 struct S : public landfill::Collectible<S> {
-  S() : landfill::Collectible<S>{this} { std::printf("S::S()\n"); }
+  S() { std::printf("S::S()\n"); }
   ~S() { std::printf("S::~S()\n"); }
   std::vector<landfill::WeakPointer<P>> ptrs;
 };

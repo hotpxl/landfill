@@ -6,7 +6,7 @@
 struct S : public landfill::Collectible<S> {
  public:
   static int cnt;
-  S() : landfill::Collectible<S>{this} { ++cnt; }
+  S() { ++cnt; }
   ~S() { --cnt; }
   std::vector<landfill::WeakPointer<S>> ptrs;
 };  // struct S

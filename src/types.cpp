@@ -144,13 +144,11 @@ void RawWeakPointer::Reset() { ref_ = nullptr; }
 
 void RawWeakPointer::Reset(RawCollectible* ptr) { ref_ = ptr; }
 
-RawCollectible::RawCollectible(void* self) : self_{self} {
+RawCollectible::RawCollectible() {
   AddToLiveObjects(this);
 }
 
 RawCollectible::~RawCollectible() { RemoveFromLiveObjects(this); }
-
-void* RawCollectible::GetUntypedSelf() { return self_; }
 
 void RawCollectible::AddPointer(RawWeakPointer* ptr) { pointers_.emplace(ptr); }
 
