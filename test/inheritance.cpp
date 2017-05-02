@@ -79,4 +79,10 @@ TEST(Inheritance, MultipleInheritanceAccess) {
   ASSERT_EQ(a_ptr->c, 2);
   ASSERT_EQ(b_ptr->b, 1);
   ASSERT_EQ(c_ptr->c, 2);
+  a_ptr->b = 8;
+  a_ptr->c = 9;
+  ASSERT_EQ(a_ptr->b, 8);
+  ASSERT_EQ(a_ptr->c, 9);
+  ASSERT_EQ(b_ptr->b, 8);
+  ASSERT_EQ(c_ptr->c, 9);
 }

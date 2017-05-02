@@ -18,16 +18,16 @@ TEST(Completeness, CircularDependency) {
 }
 
 TEST(Completeness, ComplexCircularDependency) {
-  constexpr int const kTotal = 2048;
+  constexpr int const kTotal = 512;
   std::vector<landfill::StrongPointer<S>> ptrs;
   for (int i = 0; i < kTotal; ++i) {
     ptrs.push_back(landfill::StrongPointer<S>::Make());
   }
   std::random_device rd{};
   std::mt19937 gen{rd()};
-  std::uniform_int_distribution<> dis{0, 2047};
+  std::uniform_int_distribution<> dis{0, kTotal - 1};
   for (int i = 0; i < kTotal; ++i) {
-    for (int j = 0; j < 1024; ++j) {
+    for (int j = 0; j < 256; ++j) {
       ptrs[i]->ptrs.push_back(
           landfill::WeakPointer<S>(ptrs[i].Get(), ptrs[dis(gen)].Get()));
     }
