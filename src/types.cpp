@@ -20,14 +20,14 @@ void RemoveFromLiveObjects(RawCollectible* ptr) { live_objects.erase(ptr); }
 }  // anonymous namespace
 
 void GC() {
-  std::printf("Rootset: %zu\n", root_set.size());
-  for (auto p : root_set) {
-    std::printf("%p\n", p);
-  }
-  std::printf("Live objects: %zu\n", live_objects.size());
-  for (auto p : live_objects) {
-    std::printf("%p\n", p);
-  }
+  // std::printf("Rootset: %zu\n", root_set.size());
+  // for (auto p : root_set) {
+  //   std::printf("%p\n", p);
+  // }
+  // std::printf("Live objects: %zu\n", live_objects.size());
+  // for (auto p : live_objects) {
+  //   std::printf("%p\n", p);
+  // }
   std::vector<RawCollectible*> stack;
   std::unordered_set<RawCollectible*> reachable;
   for (auto p : root_set) {
@@ -55,7 +55,7 @@ void GC() {
   auto live_objects_copy = live_objects;
   for (auto obj : live_objects_copy) {
     if (reachable.count(obj) == 0) {
-      std::printf("%p is not reachable.\n", obj);
+      // std::printf("%p is not reachable.\n", obj);
       delete obj;
     }
   }

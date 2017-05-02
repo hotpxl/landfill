@@ -1,14 +1,5 @@
 #include <gtest/gtest.h>
-#include <landfill/types.h>
-
-struct S : public landfill::Collectible<S> {
- public:
-  static int cnt;
-  S() : landfill::Collectible<S>{this} { ++cnt; }
-  ~S() { --cnt; }
-};  // struct S
-
-int S::cnt = 0;
+#include "definitions.h"
 
 TEST(StrongPointerTest, IncrementCounter) {
   S* ptr = new S{};
@@ -19,7 +10,7 @@ TEST(StrongPointerTest, IncrementCounter) {
 
 TEST(StrongPointerTest, DecrementCounter) {
   {
-    landfill::StrongPointer<S> s{new S{}};
+    auto s = landfill::StrongPointer<S>::Make();
     ASSERT_EQ(S::cnt, 1);
   }
   landfill::GC();

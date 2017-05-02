@@ -1,5 +1,5 @@
-#ifndef LANDFILL_LANDFILL_TYPES_H_
-#define LANDFILL_LANDFILL_TYPES_H_
+#ifndef LANDFILL_INCLUDE_LANDFILL_TYPES_H_
+#define LANDFILL_INCLUDE_LANDFILL_TYPES_H_
 #include <type_traits>
 #include <unordered_set>
 
@@ -69,13 +69,19 @@ template <typename T>
 class Collectible;
 
 template <typename T>
+class WeakPointer;
+
+template <typename T>
 class StrongPointer : public RawStrongPointer {
   static_assert(std::is_base_of<Collectible<T>, T>::value,
                 "Must inherit from Collectible.");
 
  public:
+  template <typename... Args>
+  static StrongPointer<T> Make(Args&&... args);
   StrongPointer() = default;
   StrongPointer(Collectible<T>* c);
+  StrongPointer(WeakPointer<T> const& w);
   StrongPointer(StrongPointer<T> const& other) = default;
   StrongPointer(StrongPointer<T>&& other) = default;
   ~StrongPointer() = default;
@@ -86,22 +92,22 @@ class StrongPointer : public RawStrongPointer {
   T* operator->() const;
 };  // class StrongPointer
 
-template <typename T, typename U>
+template <typename T>
 class WeakPointer : public RawWeakPointer {
   static_assert(std::is_base_of<Collectible<T>, T>::value,
                 "Must inherit from Collectible.");
-  static_assert(std::is_base_of<Collectible<U>, U>::value,
-                "Must inherit from Collectible.");
 
  public:
+  template <typename... Args>
+  static WeakPointer<T> Make(RawCollectible* owner, Args&&...);
   WeakPointer() = delete;
-  WeakPointer(Collectible<U>* owner);
-  WeakPointer(Collectible<U>* owner, Collectible<T>* ref);
-  WeakPointer(WeakPointer<T, U> const& other) = default;
-  WeakPointer(WeakPointer<T, U>&& other) = default;
+  WeakPointer(RawCollectible* owner);
+  WeakPointer(RawCollectible* owner, Collectible<T>* ref);
+  WeakPointer(WeakPointer<T> const& other) = default;
+  WeakPointer(WeakPointer<T>&& other) = default;
   ~WeakPointer() = default;
-  WeakPointer<T, U>& operator=(WeakPointer<T, U> const& other) = default;
-  WeakPointer<T, U>& operator=(WeakPointer<T, U>&& other) = default;
+  WeakPointer<T>& operator=(WeakPointer<T> const& other) = default;
+  WeakPointer<T>& operator=(WeakPointer<T>&& other) = default;
   T* Get() const;
   T& operator*() const;
   T* operator->() const;
@@ -122,7 +128,17 @@ class Collectible : public RawCollectible {
 };  // class Collectible;
 
 template <typename T>
+template <typename... Args>
+StrongPointer<T> StrongPointer<T>::Make(Args&&... args) {
+  return StrongPointer<T>{new T(std::forward<Args>(args)...)};
+}
+
+template <typename T>
 StrongPointer<T>::StrongPointer(Collectible<T>* c) : RawStrongPointer{c} {}
+
+template <typename T>
+StrongPointer<T>::StrongPointer(WeakPointer<T> const& w)
+    : RawStrongPointer{w.Get()} {}
 
 template <typename T>
 T* StrongPointer<T>::Get() const {
@@ -139,31 +155,36 @@ T* StrongPointer<T>::operator->() const {
   return Get();
 }
 
-template <typename T, typename U>
-WeakPointer<T, U>::WeakPointer(Collectible<U>* owner)
-    : RawWeakPointer{owner} {};
+template <typename T>
+template <typename... Args>
+WeakPointer<T> WeakPointer<T>::Make(RawCollectible* owner, Args&&... args) {
+  return WeakPointer<T>{owner, new T(std::forward<Args>(args)...)};
+}
 
-template <typename T, typename U>
-WeakPointer<T, U>::WeakPointer(Collectible<U>* owner, Collectible<T>* ref)
+template <typename T>
+WeakPointer<T>::WeakPointer(RawCollectible* owner) : RawWeakPointer{owner} {};
+
+template <typename T>
+WeakPointer<T>::WeakPointer(RawCollectible* owner, Collectible<T>* ref)
     : RawWeakPointer{owner, ref} {};
 
-template <typename T, typename U>
-T* WeakPointer<T, U>::Get() const {
+template <typename T>
+T* WeakPointer<T>::Get() const {
   return static_cast<T*>(GetCollectible()->GetUntypedSelf());
 }
 
-template <typename T, typename U>
-T& WeakPointer<T, U>::operator*() const {
+template <typename T>
+T& WeakPointer<T>::operator*() const {
   return *Get();
 }
 
-template <typename T, typename U>
-T* WeakPointer<T, U>::operator->() const {
+template <typename T>
+T* WeakPointer<T>::operator->() const {
   return Get();
 }
 
-template <typename T, typename U>
-void WeakPointer<T, U>::Reset(Collectible<T>* ptr) {
+template <typename T>
+void WeakPointer<T>::Reset(Collectible<T>* ptr) {
   Reset(static_cast<RawCollectible*>(ptr));
 }
 
@@ -177,4 +198,4 @@ T* Collectible<T>::GetSelf() {
 
 }  // namespace landfill
 
-#endif  // LANDFILL_LANDFILL_TYPES_H_
+#endif  // LANDFILL_INCLUDE_LANDFILL_TYPES_H_
